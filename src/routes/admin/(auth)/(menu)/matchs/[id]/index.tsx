@@ -38,12 +38,12 @@ export const choisirGagnant = server$(async function(gagnant: string) {
 
         const _paris = db.list<Paris>({
             prefix: ['paris'],
-            end: [id]
         })
 
         const paris: { pseudo: string, agl: number }[] = []
         for await(const pari of _paris) {
-            if(pari.value.team !== gagnant) continue;
+            if(pari.value.equipe !== gagnant) continue;
+            if(pari.value.match === id) continue;
 
             paris.push({ agl: pari.value.agl , pseudo: pari.key.at(1) as string })
         }

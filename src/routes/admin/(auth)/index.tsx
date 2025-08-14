@@ -14,22 +14,22 @@ export default component$(() => {
         </p>
         <Link class="text-4xl font-bold px-4 py-2 hover:bg-white/25 rounded-md
             cursor-pointer font-sobi transition-colors"
-            href="/admin/comptes/pending">
+            href="/admin/comptes/pending" prefetch={false}>
             Comptes
         </Link>
         <Link class="text-4xl font-bold px-4 py-2 hover:bg-white/25 rounded-md
             cursor-pointer font-sobi transition-colors"
-            href="/admin/matchs">
+            href="/admin/matchs" prefetch={false}>
             Matchs
         </Link>
         <Link class="text-4xl font-bold px-4 py-2 hover:bg-white/25 rounded-md
             cursor-pointer font-sobi transition-colors"
-            href="/admin/retraits">
+            href="/admin/retraits" prefetch={false}>
             Retraits
         </Link>
         <Link class="text-4xl font-bold px-4 py-2 hover:bg-white/25 rounded-md
             cursor-pointer font-sobi transition-colors"
-            href="/admin/transactions">
+            href="/admin/transactions" prefetch={false}>
             Transactions
         </Link>
     </section>

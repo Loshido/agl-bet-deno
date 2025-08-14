@@ -1,60 +1,27 @@
 import { component$ } from "@builder.io/qwik";
 import { routeLoader$ } from "@builder.io/qwik-city";
-import Affiche from "~/components/equipes/affiche";
+import Affiche from "~/components/equipes/affiche.tsx";
 
-export interface Match {
-    id: number,
-    titre: string,
-    informations: string,
-    ouverture: Date,
-    fermeture: Date,
-    participants: number,
-    agl: number,
-    equipes: string[]
-}
-
-import pg from "~/lib/pg";
-import cache from "~/lib/cache";
-import redis from "~/lib/redis";
+import kv, { Match } from "~/lib/kv.ts"
 export const useMatchs = routeLoader$(async () => {
-    return await cache<Match[]>(async () => {
-        const rd = redis
-        const matchs = await rd.hVals('matchs')
+    const db = await kv()
 
-        if(matchs.length !== 0) {
-            try {
-                const parsed = matchs
-                    .map(match => JSON.parse(match))
-                    .map(match => ({
-                        ...match,
-                        ouverture: new Date(match.ouverture),
-                        fermeture: new Date(match.fermeture),
-                    }))
-                    .filter(match => 
-                        match.fermeture > Date.now()) as Match[]
-                return ['ok', parsed]
-            } catch(e) {
-                console.error('[redis] parsing Match failed')
-            }
-        }
-        return ['no', async matchs => {
-            matchs.forEach(async match => {
-                await rd.hSet('matchs', match.id, JSON.stringify(match))
-            })
-        }]
-    }, async () => {
-        const client = await pg();
-    
-        const response = await client.query<Match>(
-            `SELECT * FROM matchs
-            WHERE fermeture > now() AND ouverture < now()
-            ORDER BY fermeture ASC`
-        )
-        
-        client.release()
-    
-        return response.rows
+    const _matchs = db.list<Match>({
+        prefix: ['match', false]
     })
+    const matchs: (Match & { id: string })[] = []
+    const now = new Date()
+    for await (const match of _matchs) {
+        if(now < match.value.ouverture || 
+            now > match.value.fermeture || 
+            match.value.gagnant) continue;
+        matchs.push({
+            ...match.value,
+            id: match.key.at(2) as string
+        })
+    }
+
+    return matchs
 })
 
 export default component$(() => {

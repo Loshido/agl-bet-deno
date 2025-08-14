@@ -1,44 +1,26 @@
 import { component$ } from "@builder.io/qwik";
 import { routeLoader$ } from "@builder.io/qwik-city";
-import Podium from "~/components/classement/podium";
-import cache from "~/lib/cache";
+import Podium from "~/components/classement/podium.tsx";
 
-interface Utilisateur {
-    pseudo: string,
-    agl: number
-}
-
-import pg from "~/lib/pg";
-import redis from "~/lib/redis";
+import kv, { User } from "~/lib/kv.ts";
+type NamedUser = User & { pseudo: string }
 export const useClassement = routeLoader$(async () => {
-    return await cache<Utilisateur[]>(async () => {
-        const rd = redis
-        const data = await rd.get('leaderboard')
-        if(data) {
-            const leaderboard = JSON.parse(data) as Utilisateur[]
-            return ['ok', leaderboard]
-        }
+    const db = await kv()
 
-        return ['no', async leaderboard => {
-            await rd.set('leaderboard', JSON.stringify(leaderboard), {
-                EX: 10
-            })
-        }]
-    }, async () => {
-        const client = await pg()
-    
-        // On déduit le crédit pour que le classement soit + accurate
-        const response = await client.query<Utilisateur>(
-            `SELECT utilisateurs.pseudo, agl + coalesce(-credits.du, 0) AS agl
-            FROM utilisateurs
-            LEFT JOIN credits ON utilisateurs.pseudo = credits.pseudo 
-            AND credits.status != 'rembourse'
-            ORDER BY (utilisateurs.agl + coalesce(-credits.du, 0)) DESC`
-        )
-    
-        client.release()
-        return response.rows
-    })
+    const _users = db.list<User>({
+        prefix: ['user', true]
+    }) 
+    const users: (User & { pseudo: string })[] = []
+    for await (const user of _users) {
+        users.push({
+            ...user.value,
+            pseudo: user.key.at(2) as string
+        })
+    }
+
+    users.sort((a, b) => b.agl - a.agl)
+
+    return users
 })
 
 export default component$(() => {
@@ -49,7 +31,7 @@ export default component$(() => {
                 players={
                     classement.value.length < 3
                     ? [{ pseudo: 'x', agl: 0 },{ pseudo: 'x', agl: 0 },{ pseudo: 'x', agl: 0 }]
-                    : classement.value.slice(0, 3) as [Utilisateur, Utilisateur, Utilisateur]} />
+                    : classement.value.slice(0, 3) as [NamedUser, NamedUser, NamedUser]} />
         </div>
         <div class="grid grid-cols-7 font-black 
             lg:px-48 xl:px-96">

@@ -1,73 +1,41 @@
 import { component$, useComputed$, useSignal, useStore } from "@builder.io/qwik";
 import { Link, routeLoader$, server$, useNavigate } from "@builder.io/qwik-city";
+import Equipe from "./Equipe.tsx";
+import { usePayload } from "~/routes/home/layout.tsx";
 
-import type { Match } from "..";
-interface Pari {
-    agl: number,
-    equipe: string
-}
-
-import pg from "~/lib/pg";
-import redis from "~/lib/redis";
-import cache from "~/lib/cache";
+import { verify } from "~/lib/jwt.ts";
+import { id as gen } from "env"
+import kv, { User, Match, Paris } from "~/lib/kv.ts";
 export const useMatch = routeLoader$(async ctx => {
-    const match = await cache<Match | null>(async () => {
-        const rd = redis
-        const data = await rd.hGet('matchs', ctx.params.id);
+    const db = await kv()
+    const id = ctx.params.id
 
-        if(data) {
-            try {
-                const match = JSON.parse(data)
-                const parsed = {
-                    ...match,
-                    ouverture: new Date(match.ouverture),
-                    fermeture: new Date(match.fermeture)
-                } as Match
-                return ['ok', parsed]
-            } catch(e) {
-                console.error('[redis] parsing Match failed')
-            }
-        }
-        return ['no', async match => {
-            if(!match) return
-            
-            await rd.hSet('matchs', ctx.params.id, JSON.stringify(match))
-        }]
-    }, async () => {
-        const client = await pg();
-    
-        const response = await client.query<Match>(
-            `SELECT * FROM matchs
-            WHERE id = $1 AND ouverture < now() AND fermeture > now()`,
-            [ctx.params.id]
-        )
-        client.release()
-        if(!response.rowCount) return null
+    const match = await db.get<Match>(['match', false, id])
+    const now = new Date()
 
-        return response.rows[0]
+    if(!match.value || 
+        now < match.value.ouverture || 
+        now > match.value.fermeture) return null;    
+
+    const _paris = db.list<Paris>({
+        prefix: ['paris'],
     })
-    if(!match) return null
-
-    const client = await pg()
-    const paris = await client.query<Pari>(
-        `SELECT agl, equipe FROM paris
-        WHERE match = $1`,
-        [ctx.params.id]
-    )
+    const paris: Paris[] = []
+    for await (const pari of _paris) {
+        if(pari.value.match !== id) continue;
+        paris.push(pari.value)
+    } 
 
     const equipes: { [equipe: string]: number } = {}
     
-    match.equipes.forEach(equipe => equipes[equipe] = 0)
-    paris.rows.forEach(row => {
-        if(row.equipe in equipes) {
+    match.value.equipes.forEach(equipe => equipes[equipe] = 0)
+    paris.forEach(row => {
+        if(row.equipe in equipes) 
             equipes[row.equipe] += row.agl
-        }
     })
 
-    client.release()
-
     return {
-        ...match,
+        ...match.value,
         equipes: Object.keys(equipes)
             .map(equipe => [
                 equipe, 
@@ -81,65 +49,61 @@ export const useMatch = routeLoader$(async ctx => {
 export const parier = server$(async function(pari: number, equipe: string) {
     const cookie = this.cookie.get('token')
     if(!cookie) return false
-    const payload = decode(cookie.value)
+    
+    const payload = await verify(cookie.value, this.env)
     if(!payload) return false
-
+    
     const pseudo = payload.pseudo
     const match = this.params.id
-    const client = await pg()
+    const db = await kv()
+    
+    const user = await db.get<User>(['user', true, pseudo])
+    if(!user.value) return false
+
     console.info(`[match] Pari entrant (${pseudo}, ${pari} agl, ${equipe})`)
     try {
-        await client.query('BEGIN')
-        const compte = await client.query(
-            `UPDATE utilisateurs SET agl = agl - $2
-            WHERE pseudo = $1 AND agl >= $2`,
-            [pseudo, pari]
-        )
-        if(!compte.rowCount) {
+        const tr = db.atomic()
+
+        if(user.value.agl < pari) {
             console.info(`[match] ${pseudo} n'a pas assez d'agl`)
             throw new Error("Pas assez d'argents")
         }
+        tr.set(['user', true, pseudo], {
+            ...user.value,
+            agl: user.value.agl - pari
+        })
+        tr.set(['transaction', pseudo, gen(10)], {
+            agl: -pari,
+            raison:  `Pari pour ${ equipe } (${match})`,
+            at: new Date()
+        })
+        
+        tr.set(['paris', pseudo, gen(10), match], {
+            agl: pari,
+            equipe,
+            at: new Date()
+        })
+        
+        const _match = await db.get<Match>(['match', false, match])
+        if(!_match.value) 
+            throw new Error(`[match] Le match ${match} n'existe pas.`)
 
-        await client.query(
-            `INSERT INTO transactions (pseudo, agl, raison)
-            VALUES ($1, $2, $3)`,
-            [pseudo, -pari, `Pari pour ${ equipe } (${match})`]
-        )
-        
-        await client.query(
-            `INSERT INTO paris (pseudo, agl, match, equipe)
-            VALUES ($1, $2, $3, $4)`,
-            [pseudo, pari, match, equipe]
-        )
-        
-        const matchs = await client.query<Match>(
-            `UPDATE matchs SET participants = participants + 1, agl = agl + $2
-            WHERE id = $1 RETURNING *`,
-            [match, pari]
-        )
-        if(!matchs.rowCount) {
-            throw new Error("Match non mis à jours.")
-        }
+        tr.set(['match', false, match], {
+            ..._match.value,
+            participants: _match.value.participants + 1,
+            agl: _match.value.agl + pari
+        })
         this.sharedMap.delete('payload')
         
-        await client.query('COMMIT')
-        client.release()
-        await redis.hDel('payload', pseudo)
+        await tr.commit()
 
-        const new_match = matchs.rows[0]
-        await redis.hSet('matchs', new_match.id, JSON.stringify(new_match))
     } catch(e) {
         console.error(`[match][^${pseudo}]`,e)
-        await client.query('ROLLBACK')
-        client.release()
         return false
     }
     return true
 })
 
-import Equipe from "./Equipe";
-import { decode } from "~/lib/jwt";
-import { usePayload } from "~/routes/home/layout";
 export default component$(() => {
     const match = useMatch();
     const payload = usePayload()
@@ -165,8 +129,8 @@ export default component$(() => {
         items-center justify-center">
         <p class="text-2xl font-semibold">
             Ce match n'existe pas.
-        </p>
-        <Link href="/home/match" 
+        </p> 
+        <Link href="/home/match" prefetch={false}
             class="text-pink hover:text-pink/75 transition-colors">
                 Revenir aux matchs
         </Link>

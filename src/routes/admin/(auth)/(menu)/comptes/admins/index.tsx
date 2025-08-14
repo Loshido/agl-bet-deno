@@ -3,8 +3,8 @@ import { routeLoader$, server$ } from "@builder.io/qwik-city";
 import Dialog from "~/components/Dialog.tsx";
 
 import { tokens, sauvegarderAdministrateurs } from "~/routes/admin/auth.ts";
-import { randomUUID } from "crypto"
 import webhook from "./webhook.ts";
+import { id } from "env";
 
 export const useAdminAccounts = routeLoader$(() => {
     const users: [string, string, boolean][] = [];
@@ -21,7 +21,7 @@ export const supprimer = server$(async (token: string) => {
 })
 
 export const nouveau = server$(async (nom: string) => {
-    const token = randomUUID()
+    const token = id(32)
 
     tokens.set(token, {
         name: nom,

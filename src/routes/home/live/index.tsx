@@ -1,96 +1,88 @@
 import { component$ } from "@builder.io/qwik";
 import { routeLoader$, server$, useNavigate } from "@builder.io/qwik-city";
-import pg from "~/lib/pg";
-import { usePayload } from "../layout";
-import { decode } from "~/lib/jwt";
+import { usePayload } from "../layout.tsx";
+import { decode } from "~/lib/jwt.ts";
 
-interface Pari {
-    id: number,
+import { id as gen } from "env";
+import kv, { Paris, Match, User } from "~/lib/kv.ts";
+interface ProcessedData {
+    id: string,
     titre: string,
     informations: string,
-    match: number,
+    match: string,
     agl: number,
     equipe: string,
-    at: Date    
+    at: Date
 }
 
 export const useLive = routeLoader$(async ctx => {
     const payload = await ctx.resolveValue(usePayload)
-    const client = await pg();
+    const db = await kv()
 
-    const response = await client.query<Pari>(
-        `SELECT 
-            p.id, p.match, p.agl, 
-            p.equipe, p.at,
-            m.titre, m.informations
-        FROM paris p
-        JOIN matchs m ON m.id = p.match
-        WHERE pseudo = $1 AND fermeture > now()`,
-        [payload.pseudo]
-    )
+    const _paris = db.list<Paris>({
+        prefix: ['paris', payload.pseudo]
+    }) 
+    const paris: ProcessedData[] = []
+    for await (const pari of _paris) {
+        const match_id = pari.key.at(3) as string
+        const match = await db.get<Match>(['match', false, match_id])
+        if(!match.value) continue;
 
-    client.release()
+        paris.push({
+            id: pari.key.at(2) as string,
+            titre: match.value.titre,
+            informations: match.value.informations,
+            match: match_id,
+            agl: pari.value.agl,
+            equipe: pari.value.equipe,
+            at: pari.value.at
+        })
+    }
 
-    return response.rows
+    return paris
 })
 
-import redis from "~/lib/redis";
 export const retirer = server$(async function(id: number, match: number) {
     const token = this.cookie.get('token')
     if(!token) return false
+
     const payload = decode(token.value)
     if(!payload) return false
 
     const pseudo = payload.pseudo
-    const client = await pg()
+    const db = await kv()
 
     try {
-        await client.query('BEGIN')
-        const paris = await client.query<{ agl: number, equipe: string }>(
-            `DELETE FROM paris 
-            WHERE id = $2 AND pseudo = $1
-            RETURNING agl, equipe`,
-            [pseudo, id]
-        )
+        const tr = db.atomic()
+        const [_pari, _match, _user] = await db.getMany<[Paris, Match, User]>([
+            ['paris', pseudo, id, match],
+            ['match', false, match],
+            ['user', true, pseudo]
+        ])
+        if(!_pari.value || !_match.value || !_user.value) return false
 
-        if(!paris.rowCount) {
-            throw new Error('Pari introuvable')
-        }
-        const pari = paris.rows[0]
+        tr.delete(['paris', pseudo, id, match])
 
-        const matchs = await client.query<unknown & { id: number }>(
-            `UPDATE matchs SET 
-            agl = agl - $2, participants = participants - 1
-            WHERE id = $1
-            RETURNING *`,
-            [match, pari.agl])
-        if(!matchs.rowCount) {
-            throw new Error("Le match n'a pas été mis à jours")
-        }
+        tr.set(['match', false, match], {
+            ..._match.value,
+            agl: _match.value.agl - _pari.value.agl,
+            participants: _match.value.participants - 1
+        })
+        tr.set(['transaction', pseudo, gen(10)], {
+            agl: _pari.value.agl,
+            raison: `Annulation pari pour ${_pari.value.equipe}`,
+            at: new Date()
+        })
 
-        await client.query(
-            `INSERT INTO transactions (pseudo, agl, raison)
-            VALUES ($1, $2, $3)`,
-            [pseudo, pari.agl, "Annulation pari pour " + pari.equipe]
-        )
-
-        await client.query(
-            `UPDATE utilisateurs
-            SET agl = agl + $2
-            WHERE pseudo = $1`,
-            [pseudo, pari.agl]
-        )
+        tr.set(['user', true, pseudo], {
+            ..._user.value,
+            agl: _user.value.agl + _pari.value.agl
+        })
         
-        await client.query('COMMIT')
-        const new_match = matchs.rows[0]
-        await redis.hSet('matchs', new_match.id, JSON.stringify(new_match))
+        await tr.commit()
     } catch {
-        await client.query('ROLLBACK')
-        client.release()
         return false
     }
-    client.release()
-    await redis.hDel('payload', pseudo)
     return true
 })
 

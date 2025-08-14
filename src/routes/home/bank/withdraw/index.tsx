@@ -1,7 +1,8 @@
 import { component$, useSignal } from "@builder.io/qwik";
 import { Link, routeAction$, z, zod$ } from "@builder.io/qwik-city";
 
-import pg from "~/lib/pg";
+import { id as gen } from "env";
+import kv, { User } from "~/lib/kv.ts";
 export const useRetrait = routeAction$(async (data, ctx) => {
     const payload = ctx.sharedMap.get('payload') as SharedPayload | undefined
     if(!payload?.pseudo) {
@@ -17,44 +18,36 @@ export const useRetrait = routeAction$(async (data, ctx) => {
         }
     }
 
-    const client = await pg()
+    const db = await kv()
     try {
-        await client.query('BEGIN')
-        const compte = await client.query(
-            `UPDATE utilisateurs SET agl = agl - $1
-            WHERE pseudo = $2 AND agl >= $1`,
-            [
-                data.somme,
-                payload.pseudo
-            ]
-        )
-        if(!compte.rowCount) {
-            client.release()
-            throw new Error(
-                "L'utilisateur n'existe pas ou" +
-                "n'a pas les fonds nécessaires pour un retrait")
-        }
+        const user = await db.get<User>(['user', true, payload.pseudo])
+        if(!user.value) 
+            throw new Error("L'utilisateur n'existe pas")
+        if(user.value.agl < data.somme) 
+            throw new Error(payload.pseudo + " n'a pas les fonds nécessaires pour un retrait")
+            
+        const tr = db.atomic()
 
-        await client.query(
-            `INSERT INTO transactions (pseudo, agl, raison)
-            VALUES ($1, $2, $3)`,
-            [payload.pseudo, -data.somme, "Retrait via plateforme"]
-        )
-
-        await client.query(
-            `INSERT INTO retraits (pseudo, agl)
-            VALUES ($1, $2)`,
-            [payload.pseudo, data.somme]
-        )
+        tr.set(['user', true, payload.pseudo], {
+            ...user.value,
+            agl: user.value.agl - data.somme
+        })
         
-        await client.query('COMMIT')
-        await redis.hDel('payload', payload.pseudo)
+        tr.set(['transaction', payload.pseudo, gen(10)], {
+            agl: -data.somme,
+            raison: `Retrait`,
+            at: new Date()
+        })
+
+        tr.set(['retrait', payload.pseudo, gen(10)], {
+            agl: data.somme,
+            at: new Date(),
+            complete: false
+        })
+        await tr.commit()
     } catch(e) {
-        await client.query('ROLLBACK')
         throw e
     }
-
-    client.release()
 
     return {
         message: "Votre retrait a été enregistré avec succès. 💵",
@@ -65,8 +58,7 @@ export const useRetrait = routeAction$(async (data, ctx) => {
 }))
 
 import Back from "~/assets/icons/back.svg?jsx"
-import { type SharedPayload, usePayload } from "~/routes/home/layout";
-import redis from "~/lib/redis";
+import { type SharedPayload, usePayload } from "~/routes/home/layout.tsx";
 export default component$(() => {    
     const payload = usePayload()
     const latest = useSignal(0)
@@ -79,7 +71,7 @@ export default component$(() => {
             <Link class="p-2 rounded-md flex flex-row items-center gap-2 
                 bg-white/25 hover:bg-white/50
                 absolute left-4"
-                href="/home/bank">
+                href="/home/bank" prefetch={false}>
                 <Back/>
             </Link>
             <h2 class="font-sobi text-white text-4xl">

@@ -47,16 +47,17 @@ export const actionMatch = server$(async (id: string, action: Action) => {
                 const tr = db.atomic()
                 const users: Map<string, User> = new Map()
 
-                const paris = db.list<Paris>({ start: ['paris'], end: [id] })
+                const paris = db.list<Paris>({ prefix: ['paris'] })
                 for await (const pari of paris) {
-                    tr.delete(pari.key)
                     const pseudo = pari.key.at(1) as string
-
+                    if(pari.value.match !== id) continue; 
                     if(!users.has(pseudo)) {
                         const user = await db.get<User>(['user', true, pseudo])
                         if(!user.value) continue;
                         users.set(pseudo, user.value)
                     }
+
+                    tr.delete(pari.key)
 
                     const user = users.get(pseudo)!
                     tr.set(['user', true, pseudo], {
@@ -90,7 +91,7 @@ export default component$(() => {
     const matchs = useMatchs()
     const selection = useSignal<null | string>(null)
     return <>
-        <Link href="/admin/matchs/new" 
+        <Link href="/admin/matchs/new" prefetch={false}
             class="px-2 py-1 sm:px-3 rounded-md flex flex-row items-center gap-2
             transition-colors bg-white/25 hover:bg-white/50 w-fit font-avenir">
             Créer un nouveau match
@@ -120,7 +121,7 @@ export default component$(() => {
                     <div class="w-full h-full flex flex-row justify-end items-start">
                         { 
                             match.fermeture.getTime() < Date.now()
-                            ? <Link 
+                            ? <Link prefetch={false}
                                 href={`/admin/matchs/${match.id}`}
                                 class="px-2 py-1 bg-white/25 rounded-md
                                 transition-colors hover:bg-pink/75">

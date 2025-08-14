@@ -29,7 +29,7 @@ export default component$(() => {
                 key={tr}
                 class="py-1.5 px-2 font-bold text-center hover:bg-white/50
                 bg-white/25 cursor-pointer select-none rounded-sm"
-                href={`/admin/transactions/${ tr }`}>
+                href={`/admin/transactions/${ tr }`} prefetch={false}>
                 {tr}
             </Link>)
         }

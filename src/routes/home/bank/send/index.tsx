@@ -1,10 +1,12 @@
 import { component$, useStore } from "@builder.io/qwik";
 import { Link, routeAction$, z, zod$ } from "@builder.io/qwik-city";
 
-import pg from "~/lib/pg";
-import type { SharedPayload } from "~/routes/home/layout";
+import type { SharedPayload } from "~/routes/home/layout.tsx";
+import { id as gen } from "env";
+import kv, { User } from "~/lib/kv.ts";
 export const useEnvoyer = routeAction$(async (data, ctx) => {
     const payload = ctx.sharedMap.get('payload') as SharedPayload | undefined
+    data.pseudo = data.pseudo.toLowerCase()
 
     if(!payload || data.pseudo.length === 0) {
         return {
@@ -29,53 +31,52 @@ export const useEnvoyer = routeAction$(async (data, ctx) => {
     const destinataire = data.pseudo;
     const somme = data.somme;
     
-    const client = await pg()
+    const db = await kv()
     try {
-        await client.query('BEGIN')
+        const tr = db.atomic()
+        const [ _from, _to ] = await db.getMany<[User, User]>([
+            ['user', true, origine],
+            ['user', true, destinataire]
+        ])
 
-        const ids = await client.query(
-            `SELECT pseudo FROM utilisateurs 
-            WHERE pseudo = $1 OR pseudo = $2`,
-            [origine, destinataire])
-        if(!ids.rowCount || ids.rowCount != 2) {
-            await client.query('ROLLBACK');
-            client.release()
-            return {
-                message: "L'utilisateur n'existe pas 🕵️",
-                status: false,
-            }
+        if(!_from.value) return {
+            message: "Vous n'existez pas 🕵️",
+            status: false,
+        }
+        if(_from.value.agl < somme) return {
+            message: "Vous n'avez pas les fonds 🕵️",
+            status: false,
+        }
+        if(!_to.value) return {
+            message: "Le destinataire n'existe pas 🕵️",
+            status: false,
         }
 
-        const compte = await client.query(
-            `UPDATE utilisateurs SET agl = agl - $1
-            WHERE pseudo = $2 AND agl >= $1`,
-            [somme, origine]
-        );
-        if(!compte.rowCount) throw new Error(
-            "L'origine du virement n'a pas les fonds.");
-
-        await client.query(`UPDATE utilisateurs SET agl = agl + $1
-            WHERE pseudo = $2`, [somme, destinataire])
-        await client.query(`INSERT INTO transactions (pseudo, agl, raison) VALUES
-            ($1, $2, $3),
-            ($4, $5, $6)`,
-            [
-                origine, -somme, `Virement à ${destinataire}`,
-                destinataire, somme, `Virement de ${origine}`
-            ]
-        )
+        tr.set(['user', true, origine], {
+            ..._from.value,
+            agl: _from.value.agl - somme,
+            at: new Date()
+        })
+        tr.set(['transaction', origine, gen(10)], {
+            agl: -somme,
+            raison: `Virement à ${destinataire}`,
+            at: new Date()
+        })
         
-        await client.query('COMMIT')
-        await redis.hDel('payload', origine)
-        await redis.hDel('payload', destinataire)
+        tr.set(['user', true, destinataire], {
+            ..._to.value,
+            agl: _to.value.agl + somme,
+        })
+        tr.set(['transaction', destinataire, gen(10)], {
+            agl: somme,
+            raison: `Virement de ${origine}`
+        })
+        
+        await tr.commit()
     } catch(e) {
-        await client.query('ROLLBACK')
-        client.release()
         throw e
     }
     
-    client.release()
-
     return {
         message: "Votre virement a été effectué avec succès. 💵",
         status: true,
@@ -86,8 +87,7 @@ export const useEnvoyer = routeAction$(async (data, ctx) => {
 }))
 
 import Back from "~/assets/icons/back.svg?jsx"
-import { usePayload } from "../../layout";
-import redis from "~/lib/redis";
+import { usePayload } from "../../layout.tsx";
 export default component$(() => {    
     const payload = usePayload()
     const envoie = useEnvoyer()
@@ -102,7 +102,7 @@ export default component$(() => {
             <Link class="p-2 rounded-md flex flex-row items-center gap-2 
                 bg-white/25 hover:bg-white/50
                 absolute left-4"
-                href="/home/bank">
+                href="/home/bank" prefetch={false}>
                 <Back/>
             </Link>
             <h2 class="font-sobi text-white text-4xl">

@@ -9,6 +9,8 @@ node_modules
 
 # Cache
 .cache
+data/kv*
+data/kv.db
 
 .idea
 .DS_Store

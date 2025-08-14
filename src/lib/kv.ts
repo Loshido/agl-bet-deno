@@ -48,10 +48,11 @@ export interface Match {
     gagnant?: string
 }
 
-// 'paris', pseudo (string), id (string), match (string)
+// 'paris', pseudo (string), id (string)
 export interface Paris {
-    agl: number,
-    team: string,
+    match: string,
+    agl: number,    
+    equipe: string,
     at: Date
 }
 

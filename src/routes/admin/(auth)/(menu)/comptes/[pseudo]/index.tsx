@@ -133,7 +133,7 @@ export default component$(() => {
                 </div>
 
                 <hr class="my-4 border-white/25 rounded-md"/>
-                <Link 
+                <Link prefetch={false}
                     href={`/admin/transactions/${profile.value.pseudo}`}
                     class="font-black text-xl my-2
                     py-1.5 px-2 text-center hover:bg-white/50

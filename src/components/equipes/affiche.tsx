@@ -2,19 +2,9 @@ import { component$ } from "@builder.io/qwik";
 import Equipe from "./equipe.tsx";
 import { Link } from "@builder.io/qwik-city";
 import Users from "~/assets/icons/users.svg?jsx"
+import type { Match } from "~/lib/kv.ts";
 
-interface Match {
-    id: number,
-    titre: string,
-    informations: string,
-    ouverture: Date,
-    fermeture: Date,
-    participants: number,
-    agl: number,
-    equipes: string[]
-}
-
-type Props = { match: Match }
+type Props = { match: (Match & { id: string }) }
 export default component$(({ match }: Props) => {
     return <div class="w-full flex flex-col gap-1 bg-white/10 p-4 rounded-md relative">
         <h2 class="font-sobi text-2xl">
@@ -61,7 +51,7 @@ export default component$(({ match }: Props) => {
                 </span>
             </p>
         </div>
-        <Link href={`/home/match/${match.id}`}
+        <Link href={`/home/match/${match.id}`} prefetch={false}
             class="absolute bottom-4 right-4 px-3 py-1.5 bg-pink rounded-md font-sobi">
             Parier
         </Link>

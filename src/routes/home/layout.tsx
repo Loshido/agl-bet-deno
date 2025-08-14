@@ -8,75 +8,27 @@ export interface SharedPayload {
 }
 
 import { verify } from "~/lib/jwt.ts";
-
-interface Payload {
-    agl: number,
-    badges: [],
-    reset?: true,
-    credit?: 'en attente' | 'remboursement'
-}
+import kv, { User } from "~/lib/kv.ts"
 export const onRequest: RequestHandler = async ctx => {
-    if(ctx.url.searchParams.has('delete-cache')) {
-        ctx.cookie.delete('transactions', {
-            domain: cookie.domain,
-        })
-    }
-
     const token = ctx.cookie.get('token');
     if(!token) throw ctx.redirect(302, '/');
     
     const payload = await verify(token.value, ctx.env)
     if(!payload) throw ctx.redirect(302, '/')
     
-    const data = await cache<Payload>(async () => {
-        // Get data from cache
-        const rd = redis
-        const data = await rd.hGet('payload', payload.pseudo)
-
-        if(!data) return ['no', async fresh => {
-            await rd.hSet('payload', payload.pseudo, JSON.stringify(fresh))
-        }]
-        const fresh = JSON.parse(data) as Payload
-        return ['ok', fresh]
-    }, async () => {
-        // Get data from database
-        const client = await pg()
-        const response = await client.query<{ agl: number }>(
-            `SELECT agl FROM utilisateurs WHERE pseudo = $1`,
-            [payload.pseudo]
-        )
-        const credits = await client.query<{ status: 'remboursement' | 'en attente' | 'rembourse'}>(
-            `SELECT status FROM credits WHERE pseudo = $1`, 
-            [payload.pseudo])
-        client.release()
-
-        const credit = credits.rowCount && credits.rows.some(row => row.status !== 'rembourse')
-            ? credits.rows.find(row => row.status !== 'rembourse')!.status as 'remboursement' | 'en attente'
-            : undefined
-
-        return {
-            agl: response.rows[0].agl,
-            badges: [],
-            credit
-        }
-    })
+    // Get data from database
+    const db = await kv()
+    const user = await db.get<User>(['user', true, payload.pseudo])
+    if(!user.value) throw ctx.redirect(302, '/logout')
 
     ctx.sharedMap.set('payload', {
         pseudo: payload.pseudo,
-        agl: data.agl,
-        credit: data.credit
+        agl: user.value.agl
     })
-
-    if(data.reset) {
-        const reset_location = ctx.url;
-        reset_location.searchParams.append('delete-cache', '')
-        throw ctx.redirect(302, reset_location.toString())
-    }
 }
 
 import Live from "~/assets/icons/live.svg?jsx"
 import Leader from "~/assets/icons/leader.svg?jsx"
-import cookie from "~/lib/cookie";
 const liens = [
     {
         path: '/home/match/',
@@ -128,7 +80,7 @@ export default component$(() => {
         <header class="flex flex-row items-center justify-between text-xl font-sobi z-10">
             <nav class="flex flex-row items-center gap-2">
                 {
-                    liens.map((lien, i) => <Link key={i} href={lien.path}
+                    liens.map((lien, i) => <Link key={i} href={lien.path} prefetch={false}
                         class={[
                         "p-2 sm:px-3 rounded-md flex flex-row items-center gap-2",
                         lien.path === loc.url.pathname
@@ -140,7 +92,7 @@ export default component$(() => {
                 }
             </nav>
             <Link class="p-1.5 sm:p-2 bg-white/25 hover:bg-white/50 rounded-md font-sobi whitespace-nowrap"
-                href="/home/bank">
+                href="/home/bank" prefetch={false}>
                 { payload.value.agl } <span class="text-sm text-pink">agl</span>
             </Link>
         </header>

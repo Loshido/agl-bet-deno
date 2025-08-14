@@ -17,7 +17,7 @@ export const onPost: RequestHandler = async ctx => {
         ctx.send(400, 'Mauvaises entrées')
         return
     }
-
+    
     if(form.pass.length < 4) {
         ctx.send(400, 'Mots de passe trop court!')
         return
@@ -26,18 +26,17 @@ export const onPost: RequestHandler = async ctx => {
         ctx.send(400, 'Pseudo trop court!')
         return
     }
-    
+    const pseudo = form.pseudo.toLowerCase()
     const db = await kv()
 
-    const user = await db.get<User>(['user', form.pseudo])
-    
+    const user = await db.get<User>(['user', true, pseudo])
     if(!user.value) {
         if(ctx.env.get('INSCRIPTION') === 'false') {
             ctx.send(400, "Les inscriptions ne sont plus ouvertes.")
             return
         }
         const computed_pass = await hash(form.pass);
-        await db.set(['user', false, form.pseudo], {
+        await db.set(['user', false, pseudo], {
             pass: computed_pass,
             createdat: new Date(),
             agl: STARTING_AGL
@@ -46,17 +45,13 @@ export const onPost: RequestHandler = async ctx => {
         ctx.send(401, 'Compte en attente')
         return
     } else {
-        if(!user.key.at(1) as boolean) {
-            ctx.send(401, 'Compte en attente')
-            return
-        }
         if(await verify(form.pass, user.value.pass) === false) {
             ctx.send(400, "Erreur palpitante 👀")
             return 
         }
     }
 
-    const jwt = await sign({ pseudo: form.pseudo }, ctx.env)
+    const jwt = await sign({ pseudo: pseudo }, ctx.env)
     if(!jwt) {
         console.error("[jwt] Erreur lors de la signature d'un JWT.")
         ctx.send(400, "Erreur renversante 👀")

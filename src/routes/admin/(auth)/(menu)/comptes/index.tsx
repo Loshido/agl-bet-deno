@@ -34,7 +34,7 @@ export default component$(() => {
                     {utilisateur.agl} <span class="text-xs text-pink">agl</span>
                 </p>
                 <Link class="py-1.5 px-2 font-bold text-center hover:bg-white/50 
-                    bg-white/25 cursor-pointer select-none rounded-sm"
+                    bg-white/25 cursor-pointer select-none rounded-sm" prefetch={false}
                     href={`/admin/comptes/${ utilisateur.pseudo }`}>
                     Voir
                 </Link>
