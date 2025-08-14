@@ -1,0 +1,32 @@
+{
+    "unstable": ["kv"],
+    "compilerOptions": {
+        "lib": [
+            "deno.window", "deno.unstable",
+            "es2022", "dom", "webworker", "dom.iterable"
+        ],
+        "strict": true,
+        "jsx": "react-jsx",
+        "jsxImportSource": "@builder.io/qwik"
+    },
+    "tasks": {
+        "build": "deno -A build.ts",
+        "dev": "deno -A dev.ts",
+        "serve": "deno -A server/entry.deno.js",
+        "qwik": "deno -A qwik"
+    },
+    "nodeModulesDir": "auto",
+    "imports": {
+        "@builder.io/qwik": "npm:@builder.io/qwik",
+        "@builder.io/qwik-city": "npm:@builder.io/qwik-city",
+        "@deno/vite-plugin": "npm:@deno/vite-plugin",
+        "vite": "npm:vite",
+        "tailwindcss": "npm:tailwindcss",
+        "@tailwindcss/vite": "npm:@tailwindcss/vite",
+        "jose": "npm:jose",
+        "argon2": "jsr:@felix/argon2",
+        "id": "jsr:@its-satyajit/id-generator",
+        "~/": "./src/",
+        "env": "./src/lib/env.ts"
+    }
+}

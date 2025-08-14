@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@font-face {
+    font-family: "Sobiscuit";
+    src: url(/fonts/Sobiscuit.ttf);
+}
+@font-face {
+    font-family: "Avenir";
+    font-weight: 700;
+    src: url(/fonts/Avenir-heavy.otf);
+}
+@font-face {
+    font-family: "Avenir";
+    font-weight: 500;
+    src: url(/fonts/Avenir-medium.otf);
+}
+@font-face {
+    font-family: "Avenir";
+    src: url(/fonts/Avenir-light.otf);
+}
+@theme {
+    --color-pink: #FC43A1;
+    --color-midnight: #080E1A;
+    --font-avenir: "Avenir";
+    --font-sobi: "Sobiscuit";
+}
