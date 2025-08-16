@@ -2,7 +2,7 @@ import { component$, useSignal } from "@builder.io/qwik";
 import { type DocumentHead, Link, routeLoader$, server$, useLocation } from "@builder.io/qwik-city";
 import Button from "~/components/admin/button.tsx";
 
-import { admin, tokens } from "~/routes/admin/auth.ts";
+import { admin, tokens } from "~/lib/admin.ts";
 import kv, { User, Retrait } from "~/lib/kv.ts";
 import { id as gen } from "env";
 const modifyAGL = server$(async function(pseudo: string, agl: number) {

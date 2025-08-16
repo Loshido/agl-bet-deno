@@ -1,6 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 
-import { tokens } from "~/routes/admin/auth.ts";
+import { tokens } from "~/lib/admin.ts";
 export const onGet: RequestHandler = ctx => {
     const token = ctx.params.token;
     const exists = tokens.has(token)

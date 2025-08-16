@@ -29,3 +29,13 @@ export const sauvegarderAdministrateurs = async () => {
         await db.set(['admin', token], value)
     })
 }
+
+export default (token: string): 'root' | string | null => {
+    if(token === admin) {
+        return 'root'
+    }
+    if(tokens.has(token)) {
+        return tokens.get(token)!.name
+    }
+    return null
+}

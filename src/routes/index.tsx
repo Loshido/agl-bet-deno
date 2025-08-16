@@ -51,7 +51,7 @@ export const onPost: RequestHandler = async ctx => {
         }
     }
 
-    const jwt = await sign({ pseudo: pseudo }, ctx.env)
+    const jwt = await sign({ pseudo: pseudo })
     if(!jwt) {
         console.error("[jwt] Erreur lors de la signature d'un JWT.")
         ctx.send(400, "Erreur renversante 👀")

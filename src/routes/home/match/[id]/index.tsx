@@ -50,7 +50,7 @@ export const parier = server$(async function(pari: number, equipe: string) {
     const cookie = this.cookie.get('token')
     if(!cookie) return false
     
-    const payload = await verify(cookie.value, this.env)
+    const payload = await verify(cookie.value)
     if(!payload) return false
     
     const pseudo = payload.pseudo

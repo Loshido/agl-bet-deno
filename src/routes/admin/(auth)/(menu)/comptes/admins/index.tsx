@@ -2,7 +2,7 @@ import { $, component$, useSignal } from "@builder.io/qwik";
 import { routeLoader$, server$ } from "@builder.io/qwik-city";
 import Dialog from "~/components/Dialog.tsx";
 
-import { tokens, sauvegarderAdministrateurs } from "~/routes/admin/auth.ts";
+import { tokens, sauvegarderAdministrateurs } from "~/lib/admin.ts";
 import webhook from "./webhook.ts";
 import { id } from "env";
 

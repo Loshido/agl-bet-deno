@@ -10,8 +10,8 @@ const ALG = 'HS256';
 const ISSUER = env('JWT_ISSUER', 'agl-bet-qwik')
 const AUDIENCE = env('JWT_AUDIENCE', 'alg-bet-users');
 
-export const verify = async (jwt: string, ctx: EnvGetter): Promise<null | Payload> => {
-    const secret = ctx.get('JWT_SECRET')
+export const verify = async (jwt: string): Promise<null | Payload> => {
+    const secret = env('JWT_SECRET')
     if(!secret) throw missingEnv('JWT_SECRET')
 
     const key = new TextEncoder().encode(secret)
@@ -28,8 +28,8 @@ export const verify = async (jwt: string, ctx: EnvGetter): Promise<null | Payloa
     }
 }
 
-export const sign = async (payload: Payload & JWTPayload, ctx: EnvGetter): Promise<string | null> => {
-    const secret = ctx.get('JWT_SECRET')
+export const sign = async (payload: Payload & JWTPayload): Promise<string | null> => {
+    const secret = env('JWT_SECRET')
     if(!secret) throw missingEnv('JWT_SECRET')
 
     const key = new TextEncoder().encode(secret)
@@ -51,4 +51,14 @@ export const decode = (jwt: string) => {
     } catch {
         return null
     }
+}
+
+export const headerToCookie = (_cookies: string): { [cookie: string]: string } => {
+    const cookies: { [cookie: string]: string } = {}
+
+    _cookies.split('; ').forEach(c => {
+        const [name, value] = c.split('=')
+        cookies[name] = value
+    })
+    return cookies
 }

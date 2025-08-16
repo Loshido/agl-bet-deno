@@ -13,7 +13,7 @@ export const onRequest: RequestHandler = async ctx => {
     const token = ctx.cookie.get('token');
     if(!token) throw ctx.redirect(302, '/');
     
-    const payload = await verify(token.value, ctx.env)
+    const payload = await verify(token.value)
     if(!payload) throw ctx.redirect(302, '/')
     
     // Get data from database
