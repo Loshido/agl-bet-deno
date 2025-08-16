@@ -45,28 +45,21 @@ export const actionMatch = server$(async (id: string, action: Action) => {
         case 'supprimer':
             try {
                 const tr = db.atomic()
-                const users: Map<string, User> = new Map()
 
                 const paris = db.list<Paris>({ prefix: ['paris'] })
                 for await (const pari of paris) {
                     const pseudo = pari.key.at(1) as string
                     if(pari.value.match !== id) continue; 
-                    if(!users.has(pseudo)) {
-                        const user = await db.get<User>(['user', true, pseudo])
-                        if(!user.value) continue;
-                        users.set(pseudo, user.value)
-                    }
 
                     tr.delete(pari.key)
+                    const from = await db.get<number>(['agl', pseudo])
+                    
+                    if(!from.value) continue;
 
-                    const user = users.get(pseudo)!
-                    tr.set(['user', true, pseudo], {
-                        ...user,
-                        agl: user.agl + pari.value.agl
-                    })
+                    tr.set(['agl', pseudo], from.value + pari.value.agl)
 
                     tr.set(['transaction', pseudo, gen(10)], {
-                        agl: user.agl,
+                        agl: pari.value.agl,
                         raison: `Annulation du pari (${id}).`,
                         at: new Date()
                     })

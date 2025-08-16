@@ -1,20 +1,17 @@
 import { component$ } from "@builder.io/qwik";
 import { Link, routeLoader$ } from "@builder.io/qwik-city";
-import kv, { type User } from "~/lib/kv.ts";
+import kv from "~/lib/kv.ts";
 
 export const useTransactions = routeLoader$(async () => {
     const db = await kv()
-    
-    const _users = db.list<User>({
-        prefix: ['user', true]
+
+    const _agl = db.list<number>({
+        prefix: ['agl']
     })
 
-    const users = []
-    for await(const user of _users) {
-        users.push(user.key.at(2) as string)
-    }
+    const agl = await Array.fromAsync(_agl) 
 
-    return users
+    return agl.map(a => a.key.at(1) as string)
 })
 
 export default component$(() => {

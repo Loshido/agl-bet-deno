@@ -18,19 +18,16 @@ const modifyAGL = server$(async function(pseudo: string, agl: number) {
 
     const tr = db.atomic()
 
-    const user = await db.get<User>(['user', true, pseudo])
-    if(!user.value) throw new Error()
+    const from = await db.get<number>(['agl', pseudo])
+    if(!from.value) throw new Error()
     
     tr.set(['transaction', pseudo, gen(10)], {
-        agl: agl - user.value.agl,
+        agl: agl - from.value,
         raison: `Action staff`,
         at: new Date()
     })
 
-    tr.set(['user', true, pseudo], {
-        ...user.value,
-        agl: agl
-    })
+    tr.set(['agl', pseudo], agl)
 
     console.log(`[admin] ${ pseudo } a désormais ${agl} agl`
         + ` (${ administrateur.name })`)
@@ -42,7 +39,9 @@ export const useProfile = routeLoader$(async ctx => {
     const pseudo = ctx.params.pseudo
     const db = await kv()
 
-    const user = await db.get<User>(['user', true, pseudo])
+
+    const agl = await db.get<number>(['agl', pseudo])
+    if(!agl.value) return null
     const _retraits = db.list<Retrait>({
         prefix: ['retrait', pseudo]
     })
@@ -51,10 +50,9 @@ export const useProfile = routeLoader$(async ctx => {
         retraits.push(retrait.value)
     }
 
-    if(!user.value) return null
     return {
         pseudo,
-        user: user.value,
+        agl: agl.value,
         retraits
     }
 })
@@ -78,7 +76,7 @@ export default component$(() => {
                     <p class="col-span-2 font-sobi text-2xl">
                         <span contentEditable="true" class="outline-none"
                             onInput$={(_, t) => entree.value = t.innerText}>
-                            {profile.value.user.agl}
+                            {profile.value.agl}
                         </span>
                         <span class="text-xs text-pink mx-2">
                             agl

@@ -23,20 +23,21 @@ export default async () => {
     return kv
 }
 
-// 'admin', token (string)
+// 'admin', token (string) ->
 export interface Admin {
     name: string,
     claimed: boolean
 }
 
-// 'user', actif (boolean), pseudo (string)
+// 'user', actif (boolean), pseudo (string) ->
 export interface User {
     pass: string,
     createdat: Date,
-    agl: number,
 }
 
-// 'match', completed (boolean), id (string)
+// 'agl', pseudo (string) -> number
+
+// 'match', completed (boolean), id (string) ->
 export interface Match {
     titre: string,
     informations: string,
@@ -48,7 +49,7 @@ export interface Match {
     gagnant?: string
 }
 
-// 'paris', pseudo (string), id (string)
+// 'paris', pseudo (string), id (string) ->
 export interface Paris {
     match: string,
     agl: number,    
@@ -56,14 +57,14 @@ export interface Paris {
     at: Date
 }
 
-// 'retrait', pseudo (string), id (string)
+// 'retrait', pseudo (string), id (string) ->
 export interface Retrait {
     agl: number,
     at: Date,
     complete: boolean
 }
 
-// 'transaction', pseudo (string), id (string)
+// 'transaction', pseudo (string), id (string) ->
 export interface Transaction {
     agl: number,
     raison: string,

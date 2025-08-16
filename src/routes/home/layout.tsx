@@ -18,12 +18,12 @@ export const onRequest: RequestHandler = async ctx => {
     
     // Get data from database
     const db = await kv()
-    const user = await db.get<User>(['user', true, payload.pseudo])
-    if(!user.value) throw ctx.redirect(302, '/logout')
+    const _agl = await db.get<number>(['agl', payload.pseudo])
+    if(!_agl.value) throw ctx.redirect(302, '/logout')
 
     ctx.sharedMap.set('payload', {
         pseudo: payload.pseudo,
-        agl: user.value.agl
+        agl: _agl.value
     })
 }
 

@@ -34,16 +34,16 @@ export const useEnvoyer = routeAction$(async (data, ctx) => {
     const db = await kv()
     try {
         const tr = db.atomic()
-        const [ _from, _to ] = await db.getMany<[User, User]>([
-            ['user', true, origine],
-            ['user', true, destinataire]
+        const [ _from, _to ] = await db.getMany<[number, number]>([
+            ['agl', origine],
+            ['agl', destinataire]
         ])
 
         if(!_from.value) return {
             message: "Vous n'existez pas 🕵️",
             status: false,
         }
-        if(_from.value.agl < somme) return {
+        if(_from.value < somme) return {
             message: "Vous n'avez pas les fonds 🕵️",
             status: false,
         }
@@ -52,24 +52,18 @@ export const useEnvoyer = routeAction$(async (data, ctx) => {
             status: false,
         }
 
-        tr.set(['user', true, origine], {
-            ..._from.value,
-            agl: _from.value.agl - somme,
-            at: new Date()
-        })
+        tr.set(['agl', origine], _from.value - somme)
         tr.set(['transaction', origine, gen(10)], {
             agl: -somme,
             raison: `Virement à ${destinataire}`,
             at: new Date()
         })
         
-        tr.set(['user', true, destinataire], {
-            ..._to.value,
-            agl: _to.value.agl + somme,
-        })
+        tr.set(['agl', destinataire], _to.value + somme)
         tr.set(['transaction', destinataire, gen(10)], {
             agl: somme,
-            raison: `Virement de ${origine}`
+            raison: `Virement de ${origine}`,
+            at: new Date()
         })
         
         await tr.commit()

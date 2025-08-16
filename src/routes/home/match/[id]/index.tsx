@@ -5,7 +5,7 @@ import { usePayload } from "~/routes/home/layout.tsx";
 
 import { verify } from "~/lib/jwt.ts";
 import { id as gen } from "env"
-import kv, { User, Match, Paris } from "~/lib/kv.ts";
+import kv, { Match, Paris } from "~/lib/kv.ts";
 export const useMatch = routeLoader$(async ctx => {
     const db = await kv()
     const id = ctx.params.id
@@ -57,21 +57,18 @@ export const parier = server$(async function(pari: number, equipe: string) {
     const match = this.params.id
     const db = await kv()
     
-    const user = await db.get<User>(['user', true, pseudo])
-    if(!user.value) return false
+    const _agl = await db.get<number>(['agl', pseudo])
+    if(!_agl.value) return false
 
     console.info(`[match] Pari entrant (${pseudo}, ${pari} agl, ${equipe})`)
     try {
         const tr = db.atomic()
 
-        if(user.value.agl < pari) {
+        if(_agl.value < pari) {
             console.info(`[match] ${pseudo} n'a pas assez d'agl`)
             throw new Error("Pas assez d'argents")
         }
-        tr.set(['user', true, pseudo], {
-            ...user.value,
-            agl: user.value.agl - pari
-        })
+        tr.set(['agl', pseudo], _agl.value - pari)
         tr.set(['transaction', pseudo, gen(10)], {
             agl: -pari,
             raison:  `Pari pour ${ equipe } (${match})`,

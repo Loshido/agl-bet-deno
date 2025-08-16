@@ -2,19 +2,19 @@ import { component$ } from "@builder.io/qwik";
 import { routeLoader$ } from "@builder.io/qwik-city";
 import Podium from "~/components/classement/podium.tsx";
 
-import kv, { User } from "~/lib/kv.ts";
-type NamedUser = User & { pseudo: string }
+import kv from "~/lib/kv.ts";
+type NamedUser = { pseudo: string, agl: number }
 export const useClassement = routeLoader$(async () => {
     const db = await kv()
 
-    const _users = db.list<User>({
-        prefix: ['user', true]
-    }) 
-    const users: (User & { pseudo: string })[] = []
-    for await (const user of _users) {
+    const _agl = await Array.fromAsync(db.list<number>({
+        prefix: ['agl']
+    }) )
+    const users: { pseudo: string, agl: number }[] = []
+    for await (const agl of _agl) {
         users.push({
-            ...user.value,
-            pseudo: user.key.at(2) as string
+            agl: agl.value,
+            pseudo: agl.key.at(2) as string
         })
     }
 

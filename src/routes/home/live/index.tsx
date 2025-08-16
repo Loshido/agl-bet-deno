@@ -42,7 +42,7 @@ export const useLive = routeLoader$(async ctx => {
     return paris
 })
 
-export const retirer = server$(async function(id: number, match: number) {
+export const retirer = server$(async function(id: string, match: string) {
     const token = this.cookie.get('token')
     if(!token) return false
 
@@ -54,10 +54,10 @@ export const retirer = server$(async function(id: number, match: number) {
 
     try {
         const tr = db.atomic()
-        const [_pari, _match, _user] = await db.getMany<[Paris, Match, User]>([
+        const [_pari, _match, _user] = await db.getMany<[Paris, Match, number]>([
             ['paris', pseudo, id, match],
             ['match', false, match],
-            ['user', true, pseudo]
+            ['agl', pseudo]
         ])
         if(!_pari.value || !_match.value || !_user.value) return false
 
@@ -74,10 +74,7 @@ export const retirer = server$(async function(id: number, match: number) {
             at: new Date()
         })
 
-        tr.set(['user', true, pseudo], {
-            ..._user.value,
-            agl: _user.value.agl + _pari.value.agl
-        })
+        tr.set(['agl', pseudo], _user.value + _pari.value.agl)
         
         await tr.commit()
     } catch {

@@ -54,21 +54,12 @@ export const choisirGagnant = server$(async function(gagnant: string) {
         console.log(`[admin] Le gagnant du match ${ this.params.id }`
             + ` est ${gagnant} avec une cote à ${cote}`);
             
-        const users: Map<string, User> = new Map() 
         for(const { pseudo, agl } of paris) {
-            if(!users.has(pseudo)) {
-                const user = await db.get<User>(['user', true, pseudo])
-                if(!user.value) return;
-
-                users.set(pseudo, user.value)
-            }
-            const user = users.get(pseudo)!
+            const from = await db.get<number>(['agl', pseudo])
+            if(!from.value) continue;
             
             const pay = Math.ceil(cote * agl)
-            tr.set(['user', true, pseudo], {
-                ...user,
-                agl: user.agl + pay
-            })
+            tr.set(['agl', pseudo], from.value + pay)
             tr.set(['transaction', pseudo, gen(10)], {
                 agl: pay,
                 raison: `Pari gagnant ${ id }`,

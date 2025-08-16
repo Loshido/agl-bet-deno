@@ -20,18 +20,15 @@ export const useRetrait = routeAction$(async (data, ctx) => {
 
     const db = await kv()
     try {
-        const user = await db.get<User>(['user', true, payload.pseudo])
-        if(!user.value) 
+        const _agl = await db.get<number>(['agl', payload.pseudo])
+        if(!_agl.value) 
             throw new Error("L'utilisateur n'existe pas")
-        if(user.value.agl < data.somme) 
+        if(_agl.value < data.somme) 
             throw new Error(payload.pseudo + " n'a pas les fonds nécessaires pour un retrait")
             
         const tr = db.atomic()
 
-        tr.set(['user', true, payload.pseudo], {
-            ...user.value,
-            agl: user.value.agl - data.somme
-        })
+        tr.set(['agl', payload.pseudo], _agl.value - data.somme)
         
         tr.set(['transaction', payload.pseudo, gen(10)], {
             agl: -data.somme,

@@ -3,6 +3,7 @@ import { routeLoader$, server$ } from "@builder.io/qwik-city";
 import Button from "~/components/admin/button.tsx";
 
 import kv, { User } from "~/lib/kv.ts";
+import { STARTING_AGL } from "env";
 
 export const usePending = routeLoader$(async () => {
     const db = await kv()
@@ -27,10 +28,11 @@ export const actionUtilisateur = server$(async (pseudo: string, action: 'accepte
     if(!user.value) {
         return
     }
-    db.delete(['user', false, pseudo])
+    await db.delete(['user', false, pseudo])
 
     if(action === 'accepter') {
-        db.set(['user', true, pseudo], user.value)
+        await db.set(['user', true, pseudo], user.value)
+        await db.set(['agl', pseudo], STARTING_AGL)
     }
 })
 

@@ -38,8 +38,7 @@ export const onPost: RequestHandler = async ctx => {
         const computed_pass = await hash(form.pass);
         await db.set(['user', false, pseudo], {
             pass: computed_pass,
-            createdat: new Date(),
-            agl: STARTING_AGL
+            createdat: new Date()
         })
 
         ctx.send(401, 'Compte en attente')
