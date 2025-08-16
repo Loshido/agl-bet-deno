@@ -1,4 +1,4 @@
-import env from "env";
+import env, { id as gen } from "env";
 
 const KV = env('KV', 'none')
 
@@ -69,4 +69,42 @@ export interface Transaction {
     agl: number,
     raison: string,
     at: Date
+}
+
+type EventHandler = (pseudo: string, agl: number) => void
+const handlers: Set<EventHandler> = new Set()
+
+export class AGL {
+    kv: Deno.Kv
+    constructor(kv: Deno.Kv) {
+        this.kv = kv
+    }
+    static addListener(handler: EventHandler) {
+        const id = gen(4)
+        handlers.add(handler)
+        return id
+    }
+    static removeListener(handler: EventHandler) {
+        handlers.delete(handler)
+    }
+
+    private async set(pseudo: string, agl: number) {
+        await this.kv.set(['agl', pseudo], agl)
+    }
+
+    // negative values accepted
+    async add(pseudo: string, agl: number, raison: string) {
+        const from = await this.kv.get<number>(['agl', pseudo])
+        if(!from.value) return false
+
+        this.set(pseudo, from.value + agl)
+        await this.kv.set(['transaction', pseudo, gen(10)], {
+            agl,
+            raison,
+            at: new Date(),
+        })
+        
+        // fire events
+        handlers.forEach(h => h(pseudo, from.value + agl))
+    }
 }

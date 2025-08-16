@@ -23,4 +23,14 @@
     --color-midnight: #080E1A;
     --font-avenir: "Avenir";
     --font-sobi: "Sobiscuit";
+
+    --animate-updated: updated-row 1s ease;
+    @keyframes updated-row {
+        from {
+            background-color: #FC43A180;
+        }
+        to {
+            background-color: #FC43A100;
+        }
+    }
 }

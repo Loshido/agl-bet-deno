@@ -3,8 +3,7 @@ import { type DocumentHead, Link, routeLoader$, server$, useLocation } from "@bu
 import Button from "~/components/admin/button.tsx";
 
 import { admin, tokens } from "~/lib/admin.ts";
-import kv, { User, Retrait } from "~/lib/kv.ts";
-import { id as gen } from "env";
+import kv, { Retrait, AGL } from "~/lib/kv.ts";
 const modifyAGL = server$(async function(pseudo: string, agl: number) {
     const token = this.cookie.get('admin');
     const administrateur = admin === token?.value
@@ -16,23 +15,15 @@ const modifyAGL = server$(async function(pseudo: string, agl: number) {
 
     const db = await kv()
 
-    const tr = db.atomic()
-
     const from = await db.get<number>(['agl', pseudo])
     if(!from.value) throw new Error()
-    
-    tr.set(['transaction', pseudo, gen(10)], {
-        agl: agl - from.value,
-        raison: `Action staff`,
-        at: new Date()
-    })
 
-    tr.set(['agl', pseudo], agl)
+    const handle = new AGL(db)
+
+    await handle.add(pseudo, - from.value + agl, `Action staff`)   
 
     console.log(`[admin] ${ pseudo } a désormais ${agl} agl`
         + ` (${ administrateur.name })`)
-
-    await tr.commit()
 })
 
 export const useProfile = routeLoader$(async ctx => {

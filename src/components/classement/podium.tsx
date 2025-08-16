@@ -14,36 +14,22 @@ import Spotlight from "~/assets/classement/spotlight.svg?jsx"
 export default component$(({ players }: Podium) => {
     return <div class="grid grid-cols-3 grid-rows-8 relative isolate
         h-[160px] md:h-[320px] w-[300px] md:w-[600px]">
-        <div class="row-span-3 col-start-1 col-end-2 row-end-6
-            flex items-center justify-center flex-col gap-2">
-            <h3 class="font-sobi text-xs md:text-xl text-center">
-                { players[1].pseudo }
-            </h3>
-            <p class="font-sobi text-xs md:text-base">
-                { players[1].agl }
-                <span class="md:text-sm text-pink"> agl</span>
-            </p>
-        </div>
-        <div class="row-span-3 col-start-2 col-end-3 row-end-4
-            flex items-center justify-center flex-col gap-2">
-            <h3 class="font-sobi text-xs md:text-xl text-center">
-                { players[0].pseudo }
-            </h3>
-            <p class="font-sobi text-xs md:text-base">
-                { players[0].agl }
-                <span class="md:text-sm text-pink"> agl</span>
-            </p>
-        </div>
-        <div class="row-span-3 col-start-3 -col-end-1 row-end-7
-            flex items-center justify-center flex-col gap-2">
-            <h3 class="font-sobi text-xs md:text-xl text-center">
-                { players[2].pseudo }
-            </h3>
-            <p class="font-sobi text-xs md:text-base">
-                { players[2].agl }
-                <span class="text-xs md:text-sm text-pink"> agl</span>
-            </p>
-        </div>
+        {
+            players.map((p, i) => <div key={p.pseudo}
+                class={[
+                    i == 1 && "col-start-1 col-end-2 row-end-6",
+                    i == 0 && "col-start-2 col-end-3 row-end-4",
+                    i == 2 && "col-start-3 -col-end-1 row-end-7",
+                "row-span-3 flex items-center justify-center flex-col gap-2"]}>
+                <h3 class="font-sobi text-xs md:text-xl text-center animate-updated px-2 py-1">
+                    { p.pseudo }
+                </h3>
+                <p class="font-sobi text-xs md:text-base animate-updated px-2 py-1">
+                    { p.agl }
+                    <span class="md:text-sm text-pink"> agl</span>
+                </p>
+            </div>)
+        }
         <Podium class={["absolute bottom-0 left-0 -z-10", 
             "h-[100px] md:h-[200px] w-[300px] md:w-[600px]"]}/>
         <Spotlight class="absolute -z-20 blur-xl
